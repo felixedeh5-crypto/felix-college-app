@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>My Results - {{ name }}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+  <hr>
+  <a href="/print_result/{{ current_user.id }}" class="btn btn-info">Print My Results (PDF)</a>
+</body>
+<body class="bg-light">
+<div class="container mt-4">
+  <h2>Hello, <u>{{ name }}</u>!</h2>
+  <a href="/logout" class="btn btn-danger btn-sm">Logout</a>
+  <hr>
+  <h3>Your Results</h3>
+  <table class="table table-bordered">
+    <tr class="table-primary">
+      <th>Subject</th><th>CA1</th><th>CA2</th><th>Exam</th><th>Total</th><th>Grade</th><th>Term</th>
+    </tr>
+    {% for r in results %}
+    <tr>
+      <td>{{ r.subject }}</td>
+      <td>{{ r.ca1 }}</td>
+      <td>{{ r.ca2 }}</td>
+      <td>{{ r.exam }}</td>
+      <td>{{ r.total }}</td>
+      <td><b>{{ r.grade }}</b></td>
+      <td>{{ r.term }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  <p><i>No results yet? Ask your teacher to upload.</i></p>
+</div>
+</body>
+</html>

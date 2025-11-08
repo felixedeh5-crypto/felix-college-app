@@ -1,0 +1,17 @@
+<h2>Mark Attendance - {{ today }}</h2>
+<form method="POST">
+  <table border="1" cellpadding="5">
+    <tr bgcolor="#eee"><th>Student</th><th>Present</th><th>Absent</th><th>Late</th></tr>
+    {% for s in students %}
+    <tr>
+      <td><b>{{ s.username }}</b></td>
+      <td><input type="radio" name="status_{{ s.id }}" value="Present" {% if att_dict.get(s.id) == 'Present' %}checked{% endif %}></td>
+      <td><input type="radio" name="status_{{ s.id }}" value="Absent" {% if att_dict.get(s.id) == 'Absent' %}checked{% endif %}></td>
+      <td><input type="radio" name="status_{{ s.id }}" value="Late" {% if att_dict.get(s.id) == 'Late' %}checked{% endif %}></td>
+    </tr>
+    {% endfor %}
+  </table>
+  <br>
+  <button type="submit" style="padding:10px 20px; font-size:16px;">SAVE ATTENDANCE</button>
+</form>
+<br><a href="/teacher">Back to Dashboard</a>
