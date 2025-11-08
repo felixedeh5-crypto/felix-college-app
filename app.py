@@ -84,6 +84,13 @@ def create_users():
             user = User(username=username, password=pwd2, role='student', class_name=class_name)
             db.session.add(user)
 
+        # Add some teachers
+        teacher_pwd = bcrypt.hashpw('teacher123'.encode(), bcrypt.gensalt()).decode()
+        teacher_classes = ['JSS2', 'JSS3', 'SSS1', 'SSS2', 'SSS3']
+        for i, cls in enumerate(teacher_classes):
+            t = User(username=f'teacher_{cls.lower()}', password=teacher_pwd, role='teacher', class_name=cls, is_form_teacher=True)
+            db.session.add(t)
+
         db.session.commit()
 
 # === ROUTES ===
@@ -91,7 +98,7 @@ def create_users():
 def home():
     return redirect(url_for('login'))
 
-# === REGISTRATION PAGE (NEW!) ===
+# === REGISTRATION PAGE ===
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -148,7 +155,7 @@ def student_dash():
     results = Result.query.filter_by(student_id=current_user.id).all()
     return render_template('student_dashboard.html', results=results, name=current_user.username)
 
-# === TEACHER DASHBOARD ===
+# === TEACHER DASHBOARD (UPGRADED WITH ADD LINK) ===
 @app.route('/teacher')
 @login_required
 def teacher_dash():
@@ -214,17 +221,42 @@ def upload_result():
 
     return render_template('upload_result.html', students=students)
 
-# === ADMIN PANEL (NEW!) ===
-@app.route('/admin')
+# === ADMIN PANEL (UPGRADED WITH ADD FORMS) ===
+@app.route('/admin', methods=['GET', 'POST'])
 @login_required
 def admin_dash():
     if current_user.username != 'admin':
         flash('Only admin can access!')
         return redirect(url_for('login'))
+
     users = User.query.all()
+
+    # Add Student Form
+    if request.method == 'POST' and 'add_student' in request.form:
+        username = request.form['student_username']
+        password = bcrypt.hashpw(request.form['student_password'].encode(), bcrypt.gensalt()).decode()
+        class_name = request.form['student_class']
+        student = User(username=username, password=password, role='student', class_name=class_name)
+        db.session.add(student)
+        db.session.commit()
+        flash('Student added!')
+        return redirect(url_for('admin_dash'))
+
+    # Add Teacher Form
+    if request.method == 'POST' and 'add_teacher' in request.form:
+        username = request.form['teacher_username']
+        password = bcrypt.hashpw(request.form['teacher_password'].encode(), bcrypt.gensalt()).decode()
+        class_name = request.form['teacher_class']
+        is_form = 'form_teacher' in request.form
+        teacher = User(username=username, password=password, role='teacher', class_name=class_name, is_form_teacher=is_form)
+        db.session.add(teacher)
+        db.session.commit()
+        flash('Teacher added!')
+        return redirect(url_for('admin_dash'))
+
     return render_template('admin_dashboard.html', users=users)
 
-# === PDF PRINT (NEW!) ===
+# === PDF PRINT ===
 @app.route('/print_result/<int:student_id>')
 @login_required
 def print_result(student_id):

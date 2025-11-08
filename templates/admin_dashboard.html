@@ -9,7 +9,68 @@
   <h2>Admin Dashboard - Felix College</h2>
   <a href="/logout" class="btn btn-danger btn-sm">Logout</a>
   <hr>
-  <h3>All Users</h3>
+  
+  <!-- Add Student Form -->
+  <h4>Add New Student</h4>
+  <form method="POST">
+    <input type="hidden" name="add_student" value="1">
+    <div class="row">
+      <div class="col-md-3">
+        <input type="text" name="student_username" class="form-control" placeholder="Username (e.g. jss2_new)" required>
+      </div>
+      <div class="col-md-3">
+        <input type="password" name="student_password" class="form-control" placeholder="Password" value="123" required>
+      </div>
+      <div class="col-md-3">
+        <select name="student_class" class="form-control">
+          <option value="JSS1">JSS1</option>
+          <option value="JSS2">JSS2</option>
+          <option value="JSS3">JSS3</option>
+          <option value="SSS1">SSS1</option>
+          <option value="SSS2">SSS2</option>
+          <option value="SSS3">SSS3</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <button type="submit" class="btn btn-success">Add Student</button>
+      </div>
+    </div>
+  </form>
+  <hr>
+
+  <!-- Add Teacher Form -->
+  <h4>Add New Teacher</h4>
+  <form method="POST">
+    <input type="hidden" name="add_teacher" value="1">
+    <div class="row">
+      <div class="col-md-3">
+        <input type="text" name="teacher_username" class="form-control" placeholder="Username (e.g. mrs_english)" required>
+      </div>
+      <div class="col-md-3">
+        <input type="password" name="teacher_password" class="form-control" placeholder="Password" value="teacher123" required>
+      </div>
+      <div class="col-md-3">
+        <select name="teacher_class" class="form-control">
+          <option value="JSS1">JSS1</option>
+          <option value="JSS2">JSS2</option>
+          <option value="JSS3">JSS3</option>
+          <option value="SSS1">SSS1</option>
+          <option value="SSS2">SSS2</option>
+          <option value="SSS3">SSS3</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <div class="form-check">
+          <input type="checkbox" name="form_teacher" class="form-check-input">
+          <label class="form-check-label">Form Teacher?</label>
+        </div>
+        <button type="submit" class="btn btn-primary mt-2">Add Teacher</button>
+      </div>
+    </div>
+  </form>
+  <hr>
+
+  <h3>All Users ({{ users|length }})</h3>
   <table class="table table-striped">
     <thead>
       <tr>
@@ -29,7 +90,6 @@
       {% endfor %}
     </tbody>
   </table>
-  <p>Total Users: {{ users|length }}</p>
 </div>
 </body>
 </html>
