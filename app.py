@@ -24,7 +24,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(20), nullable=False)
+    role = db.Column(db.String(20), nullable=False)  # 'superadmin', 'teacher', 'student'
     class_name = db.Column(db.String(10))
     is_form_teacher = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
@@ -65,31 +65,32 @@ class Attendance(db.Model):
 def load_user(user_id):
     return db.session.get(User, int(user_id))
 
-# === CREATE DEFAULT USERS + 50 STUDENTS ===
+# === CREATE SUPER ADMIN + CLASS-SPECIFIC FORM TEACHERS + 50 STUDENTS ===
 def create_users():
-    if not User.query.filter_by(username='admin').first():
-        pwd = bcrypt.hashpw('admin123'.encode(), bcrypt.gensalt()).decode()
-        admin = User(username='admin', password=pwd, role='teacher', class_name='JSS1', is_form_teacher=True)
-        db.session.add(admin)
+    if not User.query.filter_by(username='superadmin').first():
+        # Super Admin (YOU - ONLY ONE)
+        super_pwd = bcrypt.hashpw('superpass123'.encode(), bcrypt.gensalt()).decode()
+        superadmin = User(username='superadmin', password=super_pwd, role='superadmin')
+        db.session.add(superadmin)
 
-        pwd2 = bcrypt.hashpw('123'.encode(), bcrypt.gensalt()).decode()
-        student = User(username='jss1_student', password=pwd2, role='student', class_name='JSS1')
+        # Class-Specific Form Teachers (One per class)
+        teacher_pwd = bcrypt.hashpw('teacher123'.encode(), bcrypt.gensalt()).decode()
+        classes = ['JSS1', 'JSS2', 'JSS3', 'SSS1', 'SSS2', 'SSS3']
+        for cls in classes:
+            t = User(username=f'formteacher_{cls.lower()}', password=teacher_pwd, role='teacher', class_name=cls, is_form_teacher=True)
+            db.session.add(t)
+
+        # Default Student
+        student_pwd = bcrypt.hashpw('123'.encode(), bcrypt.gensalt()).decode()
+        student = User(username='jss1_student', password=student_pwd, role='student', class_name='JSS1')
         db.session.add(student)
 
-        # Add 50 students across all classes (JSS1-SSS3)
-        classes = ['JSS1', 'JSS2', 'JSS3', 'SSS1', 'SSS2', 'SSS3']
+        # 50 Students Across Classes
         for i in range(50):
             class_name = classes[i % len(classes)]
             username = f'student_{i+1}_{class_name.lower()}'
-            user = User(username=username, password=pwd2, role='student', class_name=class_name)
+            user = User(username=username, password=student_pwd, role='student', class_name=class_name)
             db.session.add(user)
-
-        # Add some teachers
-        teacher_pwd = bcrypt.hashpw('teacher123'.encode(), bcrypt.gensalt()).decode()
-        teacher_classes = ['JSS2', 'JSS3', 'SSS1', 'SSS2', 'SSS3']
-        for i, cls in enumerate(teacher_classes):
-            t = User(username=f'teacher_{cls.lower()}', password=teacher_pwd, role='teacher', class_name=cls, is_form_teacher=True)
-            db.session.add(t)
 
         db.session.commit()
 
@@ -98,9 +99,14 @@ def create_users():
 def home():
     return redirect(url_for('login'))
 
-# === REGISTRATION PAGE ===
+# === REGISTRATION PAGE (Now only for Super Admin) ===
 @app.route('/register', methods=['GET', 'POST'])
+@login_required
 def register():
+    if current_user.role != 'superadmin':
+        flash('Only Super Admin can register new users!')
+        return redirect(url_for('teacher_dash' if current_user.role == 'teacher' else 'student_dash'))
+
     if request.method == 'POST':
         username = request.form['username']
         password = bcrypt.hashpw(request.form['password'].encode(), bcrypt.gensalt()).decode()
@@ -119,8 +125,8 @@ def register():
         user = User(username=username, password=password, role=role, class_name=class_name, is_form_teacher=is_form_teacher)
         db.session.add(user)
         db.session.commit()
-        flash('Registered! Login now.')
-        return redirect(url_for('login'))
+        flash('User registered!')
+        return redirect(url_for('admin_dash'))
 
     return render_template('register.html')
 
@@ -132,12 +138,12 @@ def login():
         user = User.query.filter_by(username=username).first()
         if user and bcrypt.checkpw(password.encode(), user.password.encode()):
             login_user(user)
-            if user.role == 'student':
-                return redirect(url_for('student_dash'))
-            elif user.role == 'teacher':
-                return redirect(url_for('teacher_dash'))
-            else:
+            if user.role == 'superadmin':
                 return redirect(url_for('admin_dash'))
+            elif user.role == 'student':
+                return redirect(url_for('student_dash'))
+            else:
+                return redirect(url_for('teacher_dash'))
         flash('Wrong username or password!')
     return render_template('login.html')
 
@@ -155,7 +161,7 @@ def student_dash():
     results = Result.query.filter_by(student_id=current_user.id).all()
     return render_template('student_dashboard.html', results=results, name=current_user.username)
 
-# === TEACHER DASHBOARD (UPGRADED WITH ADD LINK) ===
+# === TEACHER DASHBOARD (Class-Specific) ===
 @app.route('/teacher')
 @login_required
 def teacher_dash():
@@ -164,12 +170,12 @@ def teacher_dash():
     students = User.query.filter_by(class_name=current_user.class_name, role='student').all()
     return render_template('teacher_dashboard.html', students=students)
 
-# === MARK ATTENDANCE ===
+# === MARK ATTENDANCE (Form Teacher Only - Class-Specific) ===
 @app.route('/attendance', methods=['GET', 'POST'])
 @login_required
 def attendance():
-    if not current_user.is_form_teacher:
-        flash('Only Form Teacher can mark attendance!')
+    if not (current_user.is_form_teacher and current_user.role == 'teacher'):
+        flash('Only Form Teachers can mark attendance!')
         return redirect(url_for('teacher_dash'))
 
     students = User.query.filter_by(class_name=current_user.class_name, role='student').all()
@@ -186,18 +192,19 @@ def attendance():
                     new_att = Attendance(student_id=student.id, class_name=student.class_name, date=today, status=status, marked_by=current_user.id)
                     db.session.add(new_att)
         db.session.commit()
-        flash('Attendance saved!')
+        flash('Attendance saved for ' + current_user.class_name + '!')
         return redirect(url_for('teacher_dash'))
 
-    records = Attendance.query.filter_by(date=today).all()
+    records = Attendance.query.filter_by(date=today, class_name=current_user.class_name).all()
     att_dict = {r.student_id: r.status for r in records}
     return render_template('attendance.html', students=students, att_dict=att_dict, today=today)
 
-# === UPLOAD RESULT ===
+# === UPLOAD RESULT (Teachers upload for their class only) ===
 @app.route('/upload_result', methods=['GET', 'POST'])
 @login_required
 def upload_result():
     if current_user.role != 'teacher':
+        flash('Only teachers can upload results!')
         return redirect(url_for('login'))
 
     students = User.query.filter_by(class_name=current_user.class_name, role='student').all()
@@ -216,22 +223,22 @@ def upload_result():
         result = Result(student_id=sid, subject=subject, ca1=ca1, ca2=ca2, exam=exam, total=total, grade=grade, term=term, session=session)
         db.session.add(result)
         db.session.commit()
-        flash('Result saved!')
+        flash('Result saved for ' + current_user.class_name + '!')
         return redirect(url_for('teacher_dash'))
 
     return render_template('upload_result.html', students=students)
 
-# === ADMIN PANEL (UPGRADED WITH ADD FORMS) ===
+# === SUPER ADMIN PANEL (YOU ONLY - Full Edit Across Board) ===
 @app.route('/admin', methods=['GET', 'POST'])
 @login_required
 def admin_dash():
-    if current_user.username != 'admin':
-        flash('Only admin can access!')
-        return redirect(url_for('login'))
+    if current_user.username != 'superadmin':
+        flash('Only Super Admin can access this panel!')
+        return redirect(url_for('teacher_dash' if current_user.role == 'teacher' else 'student_dash'))
 
     users = User.query.all()
 
-    # Add Student Form
+    # Super Admin Add Student
     if request.method == 'POST' and 'add_student' in request.form:
         username = request.form['student_username']
         password = bcrypt.hashpw(request.form['student_password'].encode(), bcrypt.gensalt()).decode()
@@ -242,7 +249,7 @@ def admin_dash():
         flash('Student added!')
         return redirect(url_for('admin_dash'))
 
-    # Add Teacher Form
+    # Super Admin Add Teacher
     if request.method == 'POST' and 'add_teacher' in request.form:
         username = request.form['teacher_username']
         password = bcrypt.hashpw(request.form['teacher_password'].encode(), bcrypt.gensalt()).decode()
@@ -272,12 +279,10 @@ def print_result(student_id):
     story = []
     styles = getSampleStyleSheet()
 
-    # Title
     title = Paragraph("FELIX COLLEGE - RESULT SHEET", styles['Title'])
     story.append(title)
     story.append(Spacer(1, 12))
 
-    # Student Info
     data = [['Student:', student.username], ['Class:', student.class_name]]
     table = Table(data)
     table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.grey),
@@ -291,7 +296,6 @@ def print_result(student_id):
     story.append(table)
     story.append(Spacer(1, 12))
 
-    # Results Table
     if results:
         headers = ['Subject', 'CA1', 'CA2', 'Exam', 'Total', 'Grade', 'Term']
         result_data = [headers] + [[r.subject, r.ca1, r.ca2, r.exam, r.total, r.grade, r.term] for r in results]
